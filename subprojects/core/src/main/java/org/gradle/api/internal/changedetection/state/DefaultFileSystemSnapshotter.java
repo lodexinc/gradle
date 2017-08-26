@@ -19,6 +19,7 @@ package org.gradle.api.internal.changedetection.state;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.hash.HashCode;
+import org.gradle.api.Action;
 import org.gradle.api.file.FileTreeElement;
 import org.gradle.api.file.FileVisitDetails;
 import org.gradle.api.file.FileVisitor;
@@ -39,6 +40,7 @@ import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
 import org.gradle.internal.operations.BuildOperationContext;
 import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationQueue;
 import org.gradle.internal.operations.RunnableBuildOperation;
 import org.gradle.internal.progress.BuildOperationDescriptor;
 import org.gradle.normalization.internal.InputNormalizationStrategy;
@@ -291,17 +293,22 @@ public class DefaultFileSystemSnapshotter implements FileSystemSnapshotter, Clos
                 buffer[i] = null;
             }
             bufferSize = 0;
-            buildOperationExecutor.run(new RunnableBuildOperation() {
+            buildOperationExecutor.runAll(new Action<BuildOperationQueue<RunnableBuildOperation>>() {
                 @Override
-                public void run(BuildOperationContext context) {
-                    for (int i = 0; i < len; i++) {
-                        tasks[i].run();
-                    }
-                }
+                public void execute(BuildOperationQueue<RunnableBuildOperation> buildOperationQueue) {
+                    buildOperationQueue.add(new RunnableBuildOperation() {
+                        @Override
+                        public void run(BuildOperationContext context) {
+                            for (int i = 0; i < len; i++) {
+                                tasks[i].run();
+                            }
+                        }
 
-                @Override
-                public BuildOperationDescriptor.Builder description() {
-                    return SNAPSHOTTING_DISPLAY_NAME;
+                        @Override
+                        public BuildOperationDescriptor.Builder description() {
+                            return SNAPSHOTTING_DISPLAY_NAME;
+                        }
+                    });
                 }
             });
         }
